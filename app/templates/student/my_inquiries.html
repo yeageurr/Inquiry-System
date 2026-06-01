@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}My Inquiries{% endblock %}
+{% block breadcrumb %}My Inquiries{% endblock %}
+{% block page_title %}My Inquiries{% endblock %}
+{% block nav_my_inquiries %}active{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/my_inquiries.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- Status filter tabs -->
+<div class="status-tabs">
+    <button class="status-tab {% if status == 'All' %}active{% endif %}"
+            onclick="setFilter('All')">All</button>
+    <button class="status-tab {% if status == 'Pending' %}active{% endif %}"
+            onclick="setFilter('Pending')">Pending</button>
+    <button class="status-tab {% if status == 'Responded' %}active{% endif %}"
+            onclick="setFilter('Responded')">Responded</button>
+    <button class="status-tab {% if status == 'Closed' %}active{% endif %}"
+            onclick="setFilter('Closed')">Closed</button>
+</div>
+
+{% if inquiries %}
+<div class="inquiry-list" id="inquiry-list">
+    {% for inq in inquiries %}
+    <div class="inquiry-card" data-status="{{ inq.status.value }}">
+        <div class="inquiry-card-header">
+            <div class="inquiry-product">
+                <i class="ti ti-package"></i>
+                <strong>{{ inq.product.product_name }}</strong>
+            </div>
+            <div class="inquiry-meta">
+                <span class="inquiry-date">
+                    <i class="ti ti-calendar"></i>
+                    {{ inq.created_at.strftime('%B %d, %Y') }}
+                </span>
+                {% if inq.status.value == 'Pending' %}
+                <span class="badge badge-pending">Pending</span>
+                {% elif inq.status.value == 'Responded' %}
+                <span class="badge badge-responded">Responded</span>
+                {% else %}
+                <span class="badge badge-closed">Closed</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="inquiry-body">
+            <p class="inquiry-message">
+                <strong>Your inquiry:</strong> {{ inq.message }}
+            </p>
+
+            {% if inq.response %}
+            <div class="inquiry-response">
+                <div class="response-label">
+                    <i class="ti ti-message-reply"></i> Admin Response
+                    <span class="response-date">
+                        {{ inq.response.responded_at.strftime('%B %d, %Y %I:%M %p') }}
+                    </span>
+                    {% if inq.response.email_status.value == 'Delivered' %}
+                    <span class="badge badge-delivered badge-sm">
+                        <i class="ti ti-mail-check"></i> Delivered
+                    </span>
+                    {% elif inq.response.email_status.value == 'Failed' %}
+                    <span class="badge badge-failed badge-sm">
+                        <i class="ti ti-mail-off"></i> Email Failed
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="response-message">{{ inq.response.response_message }}</p>
+            </div>
+            {% else %}
+            <div class="inquiry-waiting">
+                <i class="ti ti-clock"></i>
+                Waiting for admin response...
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="ti ti-message-off"></i>
+    <p>You have no inquiries yet.</p>
+    <a href="/student/products" class="btn-browse">
+        <i class="ti ti-layout-grid"></i> Browse Products
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/my_inquiries.js"></script>
+{% endblock %}

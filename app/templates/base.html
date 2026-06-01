@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IGP Inquiry System{% endblock %} | EVSU</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-area">
+            <img src="/static/images/evsu logo.png" alt="EVSU Logo" class="logo-img">
+            <div>
+                <div class="logo-title">EVSU</div>
+                <div class="logo-sub">Inquiry System</div>
+            </div>
+        </div>
+
+        <nav class="nav">
+            {% if user and user.user_role == 'admin' %}
+            <a href="/admin/dashboard"
+               class="nav-item {% block nav_dashboard %}{% endblock %}">
+                <i class="ti ti-layout-dashboard"></i> Dashboard
+            </a>
+            <a href="/admin/products"
+               class="nav-item {% block nav_products %}{% endblock %}">
+                <i class="ti ti-package"></i> Products
+            </a>
+            <a href="/admin/inquiries"
+               class="nav-item {% block nav_inquiries %}{% endblock %}">
+                <i class="ti ti-message-circle"></i> Inquiries
+            </a>
+            <a href="/admin/audit-logs"
+               class="nav-item {% block nav_audit %}{% endblock %}">
+                <i class="ti ti-clipboard-list"></i> Audit Logs
+            </a>
+            {% else %}
+            <a href="/student/products"
+               class="nav-item {% block nav_browse %}{% endblock %}">
+                <i class="ti ti-layout-grid"></i> Browse Products
+            </a>
+            <a href="/student/inquiries"
+               class="nav-item {% block nav_my_inquiries %}{% endblock %}">
+                <i class="ti ti-history"></i> My Inquiries
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- Main content -->
+    <div class="main-wrapper">
+        <!-- Sidebar overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+        <div class="main-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
+                    <i class="ti ti-menu-2"></i>
+                </button>
+                <div>
+                    <div class="page-title">{% block page_title %}{% endblock %}</div>
+                    <div class="page-date" id="page-date"></div>
+                </div>
+            </div>
+            <div class="user-area">
+                <span>Hello, <strong>{{ user.user_name if user else 'User' }}!</strong></span>
+                <a href="/logout" class="logout-btn">
+                    <i class="ti ti-logout"></i> Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="/static/js/base.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block breadcrumb %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block nav_products %}active{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/products.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <button class="btn-add" onclick="openAddModal()">
+        <i class="ti ti-plus"></i> Add Product
+    </button>
+    <div class="toolbar-right">
+        <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" id="search-input" placeholder="Search products..."
+                   value="{{ search }}" onkeyup="filterProducts()">
+        </div>
+        <select id="status-filter" class="filter-select" onchange="filterProducts()">
+            <option value="All"       {% if status == 'All' %}selected{% endif %}>All</option>
+            <option value="Available" {% if status == 'Available' %}selected{% endif %}>Available</option>
+            <option value="No Stocks" {% if status == 'No Stocks' %}selected{% endif %}>No Stocks</option>
+        </select>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+    <table id="products-table">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>Product Description</th>
+                <th>Date Added</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+            <tbody>
+            {% for p in products %}
+            <tr data-name="{{ p.product_name.lower() }}"
+                data-status="{{ p.product_status.value }}">
+                <td>{{ p.product_name }}</td>
+                <td>{{ p.product_description or '—' }}</td>
+                <td>{{ p.date_added.strftime('%m-%d-%Y') }}</td>
+                <td>₱{{ "%.2f"|format(p.product_price) }}</td>
+                <td>
+                    {% if p.product_status.value == 'Available' %}
+                    <span class="badge badge-available">Available</span>
+                    {% else %}
+                    <span class="badge badge-nostocks">No Stocks</span>
+                    {% endif %}
+                </td>
+                <td class="action-cell">
+                    <button class="btn-icon btn-edit" title="Edit"
+                        data-id="{{ p.product_id }}"
+                        data-name="{{ p.product_name }}"
+                        data-desc="{{ p.product_description or '' }}"
+                        data-price="{{ p.product_price }}"
+                        data-status="{{ p.product_status.value }}"
+                        onclick="openEditModal(this)">
+                        <i class="ti ti-pencil"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" title="Delete"
+                        data-id="{{ p.product_id }}"
+                        data-name="{{ p.product_name }}"
+                        onclick="openDeleteModal(this)">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="empty-row">No products found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Add New Product</h3>
+            <button class="modal-close" onclick="closeModal('add-modal')">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <form method="POST" action="/admin/products/add">
+            <div class="modal-body">
+                <div class="form-group-modal">
+                    <label>Product Name <span class="required">*</span></label>
+                    <input type="text" name="product_name"
+                           placeholder="e.g. BSEE ID Strap" required>
+                </div>
+                <div class="form-group-modal">
+                    <label>Description</label>
+                    <textarea name="product_description" rows="3"
+                              placeholder="Optional description"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label>Price (₱) <span class="required">*</span></label>
+                        <input type="number" name="product_price"
+                               step="0.01" min="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label>Availability <span class="required">*</span></label>
+                        <select name="product_status">
+                            <option value="Available">Available</option>
+                            <option value="No Stocks">No Stocks</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel"
+                        onclick="closeModal('add-modal')">Cancel</button>
+                <button type="submit" class="btn-save">
+                    <i class="ti ti-device-floppy"></i> Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Edit Product</h3>
+            <button class="modal-close" onclick="closeModal('edit-modal')">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <form method="POST" id="edit-form">
+            <div class="modal-body">
+                <div class="form-group-modal">
+                    <label>Product Name <span class="required">*</span></label>
+                    <input type="text" name="product_name"
+                           id="edit-name" required>
+                </div>
+                <div class="form-group-modal">
+                    <label>Description</label>
+                    <textarea name="product_description"
+                              id="edit-desc" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label>Price (₱) <span class="required">*</span></label>
+                        <input type="number" name="product_price"
+                               id="edit-price" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label>Availability <span class="required">*</span></label>
+                        <select name="product_status" id="edit-status">
+                            <option value="Available">Available</option>
+                            <option value="No Stocks">No Stocks</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel"
+                        onclick="closeModal('edit-modal')">Cancel</button>
+                <button type="submit" class="btn-save">
+                    <i class="ti ti-device-floppy"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="delete-modal">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <h3>Remove Product</h3>
+            <button class="modal-close" onclick="closeModal('delete-modal')">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-warning">
+                <i class="ti ti-alert-triangle"></i>
+                <p>Are you sure you want to remove
+                    <strong id="delete-name"></strong>?
+                    This action cannot be undone.
+                </p>
+            </div>
+        </div>
+        <form method="POST" id="delete-form">
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel"
+                        onclick="closeModal('delete-modal')">Cancel</button>
+                <button type="submit" class="btn-delete">
+                    <i class="ti ti-trash"></i> Remove
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/products.js"></script>
+{% endblock %}

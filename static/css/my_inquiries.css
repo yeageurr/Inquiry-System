@@ -1,0 +1,80 @@
+.status-tabs {
+    display: flex; gap: 6px; margin-bottom: 20px;
+}
+.status-tab {
+    background: #fff; border: 1px solid #e5e0d8;
+    border-radius: 20px; padding: 6px 18px;
+    font-size: 13px; color: #555;
+    transition: background .15s, color .15s;
+}
+.status-tab:hover  { background: #F5EDD0; }
+.status-tab.active { background: #8B1A1A; color: #E8C96A;
+                     border-color: #8B1A1A; }
+
+.inquiry-list  { display: flex; flex-direction: column; gap: 14px; }
+
+.inquiry-card  {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    overflow: hidden;
+}
+
+.inquiry-card-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f5f5f5;
+    background: #faf9f7;
+}
+
+.inquiry-product {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px;
+}
+.inquiry-product i { color: #8B1A1A; font-size: 16px; }
+
+.inquiry-meta {
+    display: flex; align-items: center; gap: 10px;
+}
+.inquiry-date {
+    font-size: 12px; color: #999;
+    display: flex; align-items: center; gap: 4px;
+}
+
+.inquiry-body    { padding: 16px 18px; }
+.inquiry-message { font-size: 13px; color: #555; margin-bottom: 12px; }
+
+.inquiry-response {
+    background: #F5EDD0;
+    border-left: 3px solid #C9A84C;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 14px;
+}
+.response-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; color: #7A5C00;
+    margin-bottom: 6px; flex-wrap: wrap;
+}
+.response-date   { font-weight: 400; color: #999; }
+.response-message { font-size: 13px; color: #3D2C1E; line-height: 1.5; }
+
+.inquiry-waiting {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: #999;
+    font-style: italic;
+}
+
+.btn-browse {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; background: #8B1A1A; color: #E8C96A;
+    border-radius: 8px; padding: 10px 18px; font-size: 13px;
+    font-weight: 500;
+}
+.btn-browse:hover { background: #6B1212; }
+
+@media (max-width: 768px) {
+    .inquiry-card-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .inquiry-meta        { flex-wrap: wrap; gap: 6px; }
+    .status-tabs         { flex-wrap: wrap; }
+    .status-tab          { font-size: 12px; padding: 5px 12px; }
+}

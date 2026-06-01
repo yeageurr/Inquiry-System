@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- Stat cards -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-label">Pending Inquiries</div>
+        <div class="stat-num">{{ pending_count }}</div>
+        <div class="stat-sub">Awaiting your response</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Responded</div>
+        <div class="stat-num">{{ responded_count }}</div>
+        <div class="stat-sub">This month</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Active Products</div>
+        <div class="stat-num">{{ active_products }}</div>
+        <div class="stat-sub">Listed in catalog</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Products</div>
+        <div class="stat-num">{{ total_products }}</div>
+        <div class="stat-sub">Active in catalog</div>
+    </div>
+</div>
+
+<!-- Pending Inquiries table -->
+<div class="section-block">
+    <div class="section-header">
+        <span class="section-title">Pending Inquiries</span>
+        <div class="section-line"></div>
+        <a href="/admin/inquiries" class="view-all">View all →</a>
+    </div>
+    <div class="section-sub">Sorted from latest inquiry</div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Student Email</th>
+                    <th>Product Name</th>
+                    <th>Date Submitted</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+				<tbody>
+						{% for inq in pending_inquiries %}
+						<tr>
+								<td>{{ inq.student.name }}</td>
+								<td>{{ inq.student.email }}</td>
+								<td>{{ inq.product.product_name }}</td>
+								<td>{{ inq.created_at.strftime('%m-%d-%Y') }}</td>
+								<td><span class="badge badge-pending">Pending</span></td>
+								<td>
+										<button class="btn-respond"
+												data-id="{{ inq.inquiry_id }}"
+												data-student="{{ inq.student.name }}"
+												data-product="{{ inq.product.product_name }}"
+												data-message="{{ inq.message }}"
+												onclick="openRespondModal(this)">
+												Respond
+										</button>
+								</td>
+						</tr>
+						{% else %}
+						<tr>
+								<td colspan="6" class="empty-row">No pending inquiries.</td>
+						</tr>
+						{% endfor %}
+				</tbody>
+			</table>
+    </div>
+</div>
+
+<!-- Recent Activities Log -->
+<div class="section-block">
+    <div class="section-header">
+        <span class="section-title">Recent Activities Log</span>
+        <div class="section-line"></div>
+        <a href="/admin/audit-logs" class="view-all">View all →</a>
+    </div>
+    <div class="section-sub">Sorted from latest activity</div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Action Performed</th>
+                    <th>Action Details</th>
+                    <th>Date and Time Performed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td><span class="action-label">{{ log.action_type }}</span></td>
+                    <td>{{ log.action_details | truncate_details }}</td>
+                    <td>{{ log.performed_at.strftime('%m-%d-%Y %H:%M:%S') }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-row">No recent activity.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Respond Modal -->
+<div class="modal-overlay" id="respond-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Respond to Inquiry</h3>
+            <button class="modal-close" onclick="closeRespondModal()">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-info">
+                <p><strong>Student:</strong> <span id="modal-student"></span></p>
+                <p><strong>Product:</strong> <span id="modal-product"></span></p>
+                <p><strong>Inquiry:</strong> <span id="modal-message"></span></p>
+            </div>
+            <div class="form-group-modal">
+                <label>Your Response</label>
+                <textarea
+                    id="response-text"
+                    placeholder="Type your response here... (10–1000 characters)"
+                    maxlength="1000"
+                    rows="5"
+                ></textarea>
+                <div class="char-count"><span id="char-count">0</span> / 1000</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeRespondModal()">Cancel</button>
+            <button class="btn-send" onclick="submitResponse()">
+                <i class="ti ti-send"></i> Send Response
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

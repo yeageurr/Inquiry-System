@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Browse Products{% endblock %}
+{% block breadcrumb %}Browse Products{% endblock %}
+{% block page_title %}Browse Products{% endblock %}
+{% block nav_browse %}active{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/student_products.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="toolbar">
+    <div class="search-box">
+        <i class="ti ti-search"></i>
+        <input type="text" id="search-input"
+               placeholder="Search products..."
+               value="{{ search }}" onkeyup="filterProducts()">
+    </div>
+    <div class="filter-tabs">
+        <button class="filter-tab {% if status == 'All' %}active{% endif %}"
+                onclick="setFilter('All')">All</button>
+        <button class="filter-tab {% if status == 'Available' %}active{% endif %}"
+                onclick="setFilter('Available')">Available</button>
+        <button class="filter-tab {% if status == 'No Stocks' %}active{% endif %}"
+                onclick="setFilter('No Stocks')">No Stocks</button>
+    </div>
+</div>
+
+<!-- Product grid -->
+{% if products %}
+<div class="product-grid" id="product-grid">
+    {% for p in products %}
+    <div class="product-card"
+         data-name="{{ p.product_name.lower() }}"
+         data-status="{{ p.product_status.value }}">
+        <div class="card-accent {% if p.product_status.value == 'Available' %}accent-available{% else %}accent-nostocks{% endif %}"></div>
+        <div class="card-body">
+            <div class="card-name">{{ p.product_name }}</div>
+            <div class="card-desc">{{ p.product_description or 'No description available.' }}</div>
+            <div class="card-price">₱{{ "%.2f"|format(p.product_price) }}</div>
+            <div class="card-footer">
+                {% if p.product_status.value == 'Available' %}
+                <span class="badge badge-available">Available</span>
+                <button class="btn-inquire" disabled title="Product is available">
+                    <i class="ti ti-message-circle"></i> Inquire
+                </button>
+                {% else %}
+                <span class="badge badge-nostocks">No Stocks</span>
+                <button class="btn-inquire btn-inquire-active"
+                    data-id="{{ p.product_id }}"
+                    data-name="{{ p.product_name }}"
+                    onclick="openInquireModal(this)">
+                    <i class="ti ti-message-circle"></i> Inquire
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="ti ti-mood-empty"></i>
+    <p>No products found.</p>
+</div>
+{% endif %}
+
+<!-- Inquire Modal -->
+<div class="modal-overlay" id="inquire-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Submit Inquiry</h3>
+            <button class="modal-close" onclick="closeModal('inquire-modal')">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>You are inquiring about:
+                <strong id="inquire-product-name"></strong>
+            </p>
+            <div class="form-group-modal">
+                <label>Message</label>
+                <textarea id="inquire-message" rows="4"
+                    placeholder="Ask about availability, restock date, etc."
+                    maxlength="500"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('inquire-modal')">
+                Cancel
+            </button>
+            <button class="btn-send" onclick="submitInquiry()">
+                <i class="ti ti-send"></i> Submit Inquiry
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/student_products.js"></script>
+{% endblock %}

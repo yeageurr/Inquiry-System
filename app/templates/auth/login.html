@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | EVSU IGP Inquiry System</title>
+    <link rel="stylesheet" href="/static/css/login.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+</head>
+<body>
+
+<div class="login-bg"></div>
+<div class="login-overlay"></div>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <img src="/static/images/evsu logo.png" alt="EVSU Logo" class="login-logo">
+            <div>
+                <div class="login-university">EASTERN VISAYAS STATE UNIVERSITY</div>
+                <div class="login-system">IGP Product Inquiry System</div>
+            </div>
+        </div>
+
+        <div class="login-divider"></div>
+
+        {% if error %}
+        <div class="login-error">
+            <i class="ti ti-alert-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/login" class="login-form">
+            <div class="form-group">
+                <i class="ti ti-mail input-icon"></i>
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="EVSU Email Address"
+                    class="form-input"
+                    required
+                    autocomplete="email"
+                >
+            </div>
+
+            <div class="form-group">
+                <i class="ti ti-lock input-icon"></i>
+                <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    placeholder="Password"
+                    class="form-input"
+                    required
+                    autocomplete="current-password"
+                >
+                <button type="button" class="toggle-password" onclick="togglePassword()">
+                    <i class="ti ti-eye" id="eye-icon"></i>
+                </button>
+            </div>
+
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+
+        <div class="login-footer">
+            By using this service, you understand and agree to the
+            <a href="#">EVSU online Service Terms of Use and Privacy Statement</a>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/login.js"></script>
+</body>
+</html>

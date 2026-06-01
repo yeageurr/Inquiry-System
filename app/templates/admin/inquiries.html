@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Inquiries{% endblock %}
+{% block breadcrumb %}Inquiries{% endblock %}
+{% block page_title %}Inquiries{% endblock %}
+{% block nav_inquiries %}active{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/inquiries.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-left">
+        <select id="status-filter" class="filter-select" onchange="filterInquiries()">
+            <option value="All"       {% if status == 'All' %}selected{% endif %}>All</option>
+            <option value="Pending"   {% if status == 'Pending' %}selected{% endif %}>Pending</option>
+            <option value="Responded" {% if status == 'Responded' %}selected{% endif %}>Responded</option>
+            <option value="Closed"    {% if status == 'Closed' %}selected{% endif %}>Closed</option>
+        </select>
+        <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" id="search-input"
+                   placeholder="Search by name, email, or product..."
+                   value="{{ search }}" onkeyup="filterInquiries()">
+        </div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+    <table id="inquiries-table">
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Product Name</th>
+                <th>Date Submitted</th>
+                <th>Status</th>
+                <th>Email Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inq in inquiries %}
+            <tr data-status="{{ inq.status.value }}"
+                data-search="{{ inq.student.name.lower() }} {{ inq.student.email.lower() }} {{ inq.product.product_name.lower() }}">
+                <td>
+                    {% set can_respond = inq.status.value == 'Pending' or
+                        (inq.response and inq.response.email_status.value == 'Failed') %}
+                    <button class="btn-respond"
+                        data-id="{{ inq.inquiry_id }}"
+                        data-student="{{ inq.student.name }}"
+                        data-product="{{ inq.product.product_name }}"
+                        data-message="{{ inq.message }}"
+                        onclick="openRespondModal(this)">
+                    </button>
+                </td>
+                <td>{{ inq.student.name }}</td>
+                <td>{{ inq.student.email }}</td>
+                <td>{{ inq.product.product_name }}</td>
+                <td>{{ inq.created_at.strftime('%m-%d-%Y') }}</td>
+                <td>
+                    {% if inq.status.value == 'Pending' %}
+                    <span class="badge badge-pending">Pending</span>
+                    {% elif inq.status.value == 'Responded' %}
+                    <span class="badge badge-responded">Responded</span>
+                    {% else %}
+                    <span class="badge badge-closed">Closed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if inq.response %}
+                        {% if inq.response.email_status.value == 'Delivered' %}
+                        <span class="badge badge-delivered">Delivered</span>
+                        {% elif inq.response.email_status.value == 'Sent' %}
+                        <span class="badge badge-sent">Sent</span>
+                        {% else %}
+                        <span class="badge badge-failed">
+                            <i class="ti ti-alert-triangle"></i> Failed
+                        </span>
+                        {% endif %}
+                    {% else %}
+                    <span class="badge badge-na">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="empty-row">No inquiries found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Respond Modal -->
+<div class="modal-overlay" id="respond-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Respond to Inquiry</h3>
+            <button class="modal-close" onclick="closeModal('respond-modal')">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-info">
+                <p><strong>Student:</strong> <span id="modal-student"></span></p>
+                <p><strong>Product:</strong> <span id="modal-product"></span></p>
+                <p><strong>Inquiry:</strong> <span id="modal-message"></span></p>
+            </div>
+            <div class="form-group-modal">
+                <label>Your Response</label>
+                <textarea id="response-text" rows="5"
+                    placeholder="Type your response... (10–1000 characters)"
+                    maxlength="1000" oninput="updateCharCount()"></textarea>
+                <div class="char-count">
+                    <span id="char-count">0</span> / 1000
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('respond-modal')">
+                Cancel
+            </button>
+            <button class="btn-send" onclick="submitResponse()">
+                <i class="ti ti-send"></i> Send Response
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/inquiries.js"></script>
+{% endblock %}

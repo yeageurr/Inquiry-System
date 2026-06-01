@@ -1,0 +1,4 @@
+.readonly-notice {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #999;
+}
