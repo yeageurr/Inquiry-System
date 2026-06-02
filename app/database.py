@@ -1,38 +1,19 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
+# database.py
 import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
-DB_HOST     = os.getenv("DB_HOST", "localhost")
-DB_PORT     = os.getenv("DB_PORT", "3306")
-DB_USER     = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME     = os.getenv("DB_NAME", "igp_inquiry_db")
+# Gi-hardcode ang Service URI gikan sa Aiven, apan gi-usab na daan ngadto sa postgresql+psycopg2://
+DATABASE_URL = "postgresql+psycopg2://avnadmin:AVNS_-ozKOWmdbjipd08cnxt@evsuigp-inquiry-db-testproject2026.a.aivencloud.com:27184/defaultdb?sslmode=require"
 
-DATABASE_URL = (
-    f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}"
-    f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
-
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=False
-)
-
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
-
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-
+# Paghimo og helper function para sa database session (Dependency)
 def get_db():
     db = SessionLocal()
     try:
