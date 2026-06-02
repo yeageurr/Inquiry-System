@@ -18,7 +18,7 @@ if DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
 else:
     # Fallback backup kung pananglitan dili mabasa ang environment variable sa local
-    DATABASE_URL = "postgresql+psycopg://avnadmin:AVNS_-ozKOWmdbjipd08cnxt@evsuigp-inquiry-db-testproject2026.a.aivencloud.com:27184/defaultdb?sslmode=require"
+    DATABASE_URL = "postgresql+psycopg://avnadmin:AVNS_-ozKOWmdbjipdO8cnxT@evsuigp-inquiry-db-testproject2026.a.aivencloud.com:27184/defaultdb?sslmode=require"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
