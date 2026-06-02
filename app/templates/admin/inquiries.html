@@ -10,7 +10,6 @@
 
 {% block content %}
 
-<!-- Toolbar -->
 <div class="toolbar">
     <div class="toolbar-left">
         <select id="status-filter" class="filter-select" onchange="filterInquiries()">
@@ -28,7 +27,6 @@
     </div>
 </div>
 
-<!-- Table -->
 <div class="table-wrap">
     <table id="inquiries-table">
         <thead>
@@ -58,7 +56,6 @@
                         <i class="ti ti-mail"></i> Response
                     </button>
                 </td>
-                <td>Option</td>
                 <td>{{ inq.student.name }}</td>
                 <td>{{ inq.student.email }}</td>
                 <td>{{ inq.product.product_name }}</td>
@@ -97,7 +94,6 @@
     </table>
 </div>
 
-<!-- Respond Modal -->
 <div class="modal-overlay" id="respond-modal">
     <div class="modal">
         <div class="modal-header">
