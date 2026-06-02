@@ -13,7 +13,7 @@ from app.email import send_email, build_inquiry_response_email
 import json
 
 router    = APIRouter()
-templates = Jinja2Templates(directory="app/templates")  # Gidugang aron dili mag-error ang TemplateResponse
+templates = Jinja2Templates(directory="app/templates") # Gi-siguro nga naay templates object
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -29,7 +29,7 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # FIX: Giilisan ang Product.is_deleted == 0 ngadto sa == False
+    # FIX: Giilisan ang Product.is_deleted == 0 ngadto sa == False para sa PostgreSQL compatibility
     product = db.query(Product).filter(
         Product.product_id == product_id,
         Product.is_deleted == False
