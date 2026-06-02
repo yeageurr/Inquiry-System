@@ -8,8 +8,8 @@ from app.models import (
     Inquiry, InquiryStatus, InquiryResponse,
     EmailStatus, Product, AuditLog, User
 )
-from app.auth import get_current_user
 from app.email import send_email, build_inquiry_response_email
+from app.auth import get_current_user
 import json
 
 router    = APIRouter()
@@ -29,7 +29,6 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # Check if product exists and is No Stocks
     product = db.query(Product).filter(
         Product.product_id == product_id,
         Product.is_deleted == False
@@ -44,7 +43,6 @@ async def submit_inquiry(
             status_code=400
         )
 
-    # Check for duplicate pending inquiry
     existing = db.query(Inquiry).filter(
         Inquiry.user_id    == user["user_id"],
         Inquiry.product_id == product_id,
@@ -198,7 +196,6 @@ async def respond_inquiry(
     product_name = inquiry.product.product_name
     inquiry_message = inquiry.message
 
-    # Send email
     email_body = build_inquiry_response_email(
         student_name     = student_name,
         product_name     = product_name,
@@ -267,7 +264,7 @@ async def respond_inquiry(
 
     # Instant response para dili na mag-loading ang Admin page!
     return JSONResponse({
-        "success":       True,
+        "success":      True,
         "email_status": "pending",
         "message":      "Response saved! Email is being processed in the background."
     })
