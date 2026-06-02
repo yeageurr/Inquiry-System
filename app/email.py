@@ -13,8 +13,8 @@ SMTP_USER     = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM     = os.getenv("SMTP_FROM", "")
 
-MAX_RETRIES   = 3
-RETRY_DELAY   = 60  # seconds between retries
+MAX_RETRIES   = 2
+RETRY_DELAY   = 10  # seconds between retries
 
 
 async def send_email(to: str, subject: str, body_html: str) -> bool:
