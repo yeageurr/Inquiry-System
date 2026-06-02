@@ -10,7 +10,6 @@
 
 {% block content %}
 
-<!-- Toolbar -->
 <div class="toolbar">
   <div class="toolbar-left">
       <select id="action-filter" class="filter-select" onchange="filterLogs()">
@@ -32,14 +31,13 @@
   </div>
 </div>
 
-<!-- Table -->
 <div class="table-wrap">
   <table id="logs-table">
       <thead>
           <tr>
               <th>Action Performed</th>
               <th>Performed By</th>
-              <th>Action Details</th>
+              <th>Action Summary</th> <th>Details</th>
               <th>Date and Time</th>
           </tr>
       </thead>
@@ -49,6 +47,30 @@
               data-search="{{ log.action_type.lower() }} {{ log.actor.name.lower() if log.actor else '' }}">
               <td><span class="action-label">{{ log.action_type }}</span></td>
               <td>{{ log.actor.name if log.actor else '—' }}</td>
+              
+              <td>
+                <span class="summary-text">
+                  {% if log.action_type == 'EDIT_PRODUCT' %}
+                    {% set details = log.action_details | from_json_custom %}
+                    {% if details and details.before and details.after %}
+                      {% if details.before.product_status != details.after.product_status %}
+                        Changed status of <strong>{{ details.after.product_name }}</strong> from <em>{{ details.before.product_status }}</em> to <span class="badge {% if details.after.product_status == 'Available' %}badge-available{% else %}badge-nostocks{% endif %}">{{ details.after.product_status }}</span>
+                      {% elif details.before.product_price != details.after.product_price %}
+                        Updated price of <strong>{{ details.after.product_name }}</strong> from ₱{{ "%.2f"|format(details.before.product_price) }} to ₱{{ "%.2f"|format(details.after.product_price) }}
+                      {% else %}
+                        Updated details for product <strong>{{ details.after.product_name }}</strong>
+                      {% endif %}
+                    {% else %}
+                      Modified product attributes
+                    {% endif %}
+                  {% elif log.action_type == 'SEND_RESPONSE' %}
+                    Replied to inquiry for student
+                  {% else %}
+                    Processed transaction or record
+                  {% endif %}
+                </span>
+              </td>
+
               <td>
               <button class="btn-details"
                 data-details="{{ log.action_details | e }}"
@@ -60,14 +82,13 @@
           </tr>
           {% else %}
           <tr>
-              <td colspan="4" class="empty-row">No audit logs found.</td>
+              <td colspan="5" class="empty-row">No audit logs found.</td>
           </tr>
           {% endfor %}
       </tbody>
   </table>
 </div>
 
-<!-- Details Modal -->
 <div class="modal-overlay" id="details-modal">
   <div class="modal modal-sm">
       <div class="modal-header">
