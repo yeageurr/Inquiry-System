@@ -31,6 +31,13 @@ users = [
         "role":     UserRole.student,
     },
     {
+        "user_id":  "2022-3121",
+        "name":     "Dave Bangcoyo",
+        "email":    "jhinbangcoyo@gmail.com",
+        "password": "dave123",
+        "role":     UserRole.student,
+    },
+    {
         "user_id":  "2024-00003",
         "name":     "Carlo Reyes",
         "email":    "carloreyes@evsu.edu.ph",
