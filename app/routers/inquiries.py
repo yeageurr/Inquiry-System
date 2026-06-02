@@ -188,13 +188,17 @@ async def respond_inquiry(
     if not inquiry:
         return JSONResponse({"error": "Inquiry not found."}, status_code=404)
 
+    # LIG-ON NGA PAG-CHECK: Diretso nga i-query ang database kon duna na bay tubag
     existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
 
+    # Kung duna nay tubag ug MALAMPUSON na kini kaniadto, dili na pwede usban
+    if existing_response and existing_response.email_status.value != EmailStatus.failed.value:
     # Kung duna nay malampuson nga tubag kaniadto, dili na usban
     if existing_response and existing_response.email_status.value == EmailStatus.delivered.value:
         return JSONResponse(
             {"error": "This inquiry has already been successfully responded to."}, status_code=400)
 
+    # Build email BEFORE closing connection
     # I-build ang email body daan
     email_body = build_inquiry_response_email(
         student_name     = inquiry.student.name,
@@ -203,17 +207,41 @@ async def respond_inquiry(
         responded_at     = datetime.utcnow().strftime("%B %d, %Y %I:%M %p"),
         inquiry_message  = inquiry.message
     )
+    
+    # Store what we need, since we're about to close the DB connection
+    student_email = inquiry.student.email
+    student_name = inquiry.student.name
+    product_name = inquiry.product.product_name
 
+    # 🔑 CLOSE THE CONNECTION (it will release back to pool during email send)
+    db.close()
+
+    # ⭐ SEND EMAIL OUTSIDE THE DB SESSION - connection is now free for other requests
+    email_sent = await send_email(
+        to         = student_email,
+        subject    = f"Re: Inquiry for {product_name}",
+        body_html  = email_body
+    )
+
+    email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
+
+    # ✅ NOW get a fresh connection and save
+    db = SessionLocal()
+    
+    # Re-query for the latest state
+    existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
     # 2. DEFAULT STATUS: I-set una nato og "failed" o "pending" samtang wala pa ma-send
     email_status = EmailStatus.failed
 
     # Pagsalbar sa data sa database (Dali ra kaayo ni, milliseconds ra)
     if existing_response:
+        # Update existing
         existing_response.response_message = response_message
         existing_response.email_status     = email_status
         existing_response.responded_at     = datetime.utcnow()
         existing_response.admin_id         = user["user_id"]
     else:
+        # Insert new
         resp = InquiryResponse(
             inquiry_id       = inquiry_id,
             admin_id         = user["user_id"],
@@ -224,6 +252,9 @@ async def respond_inquiry(
         db.add(resp)
 
     # Update inquiry status
+    inquiry_to_update = db.query(Inquiry).filter(Inquiry.inquiry_id == inquiry_id).first()
+    inquiry_to_update.status     = InquiryStatus.responded
+    inquiry_to_update.updated_at = datetime.utcnow()
     inquiry.status     = InquiryStatus.responded
     inquiry.updated_at = datetime.utcnow()
     db.commit()
@@ -260,6 +291,9 @@ async def respond_inquiry(
         action_type    = "SEND_RESPONSE",
         target_id      = str(inquiry_id),
         action_details = json.dumps({
+            "student_email": student_email,
+            "product_name":  product_name,
+            "email_status":  email_status.value
             "student_email": inquiry.student.email,
             "product_name":  inquiry.product.product_name,
             "email_status":  "processing_in_background"
@@ -268,10 +302,14 @@ async def respond_inquiry(
     )
     db.add(log)
     db.commit()
+    db.close()
 
     # 4. INSTANT RESPONSE: Mobalik dayon ni sa Admin dashboard nga walay loading!
     return JSONResponse({
         "success":      True,
+        "email_status": email_status.value,
+        "message":      "Response sent successfully." if email_sent
+                        else "Response saved but email delivery failed. Will retry."
         "email_status": "pending",
         "message":      "Response saved! Email is being processed in the background."
     })
