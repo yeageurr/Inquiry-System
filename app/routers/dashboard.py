@@ -6,8 +6,8 @@ from app.database import get_db
 from app.models import Inquiry, InquiryStatus, Product, AuditLog
 from app.auth import get_current_user, require_admin
 
-router    = APIRouter(prefix="/admin")
-
+router = APIRouter(prefix="/admin")
+templates = Jinja2Templates(directory="app/templates")  # Siguroha nga naa kini nga linya
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
@@ -15,16 +15,19 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     if not user or user["user_role"] != "admin":
         return RedirectResponse("/login", status_code=302)
 
-    # Stats
+    # Stats - Giusab gikan sa 0 ngadto sa False para sa PostgreSQL Boolean Compatibility
     pending_count   = db.query(Inquiry).filter(
         Inquiry.status == InquiryStatus.pending).count()
+    
     responded_count = db.query(Inquiry).filter(
         Inquiry.status == InquiryStatus.responded).count()
+    
     active_products = db.query(Product).filter(
-        Product.is_deleted == 0,
+        Product.is_deleted == False,  # Kani nga linya ang gi-fix
         Product.product_status == "Available").count()
+    
     total_products  = db.query(Product).filter(
-        Product.is_deleted == 0).count()
+        Product.is_deleted == False).count()  # Kani pod nga linya ang gi-fix
 
     # Pending inquiries (latest 5)
     pending_inquiries = (
