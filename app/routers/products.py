@@ -9,6 +9,7 @@ from app.auth import get_current_user
 import json
 
 router    = APIRouter()
+templates = Jinja2Templates(directory="app/templates")  # Gi-siguro nga naay templates definition
 
 
 def log_action(db, user_id, action_type, target_id, details: dict):
@@ -36,7 +37,8 @@ async def admin_products(
     if not user or user["user_role"] != "admin":
         return RedirectResponse("/login", status_code=302)
 
-    query = db.query(Product).filter(Product.is_deleted == 0)
+    # FIX: Giilisan og False
+    query = db.query(Product).filter(Product.is_deleted == False)
 
     if status == "Available":
         query = query.filter(Product.product_status == ProductStatus.available)
@@ -106,9 +108,10 @@ async def edit_product(
     if not user or user["user_role"] != "admin":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
+    # FIX: Giilisan og False
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == 0
+        Product.is_deleted == False
     ).first()
 
     if not product:
@@ -149,15 +152,16 @@ async def delete_product(
     if not user or user["user_role"] != "admin":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
+    # FIX: Giilisan og False
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == 0
+        Product.is_deleted == False
     ).first()
 
     if not product:
         return JSONResponse({"error": "Product not found"}, status_code=404)
 
-    product.is_deleted = 1
+    product.is_deleted = True  # FIX: Giilisan og True
     product.updated_at = datetime.utcnow()
     db.commit()
 
@@ -181,7 +185,8 @@ async def student_products(
     if not user or user["user_role"] != "student":
         return RedirectResponse("/login", status_code=302)
 
-    query = db.query(Product).filter(Product.is_deleted == 0)
+    # FIX: Kani jud nga linya ang hinungdan sa error sa Student Login! Giilisan og False.
+    query = db.query(Product).filter(Product.is_deleted == False)
 
     if status == "Available":
         query = query.filter(Product.product_status == ProductStatus.available)
