@@ -13,6 +13,7 @@ from app.email import send_email, build_inquiry_response_email
 import json
 
 router    = APIRouter()
+templates = Jinja2Templates(directory="app/templates")  # Gidugang aron dili mag-error ang TemplateResponse
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -28,10 +29,10 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # Check if product exists and is No Stocks
+    # FIX: Giilisan ang Product.is_deleted == 0 ngadto sa == False
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == 0
+        Product.is_deleted == False
     ).first()
 
     if not product:
