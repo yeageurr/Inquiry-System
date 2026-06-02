@@ -8,12 +8,13 @@ from app.models import (
     Inquiry, InquiryStatus, InquiryResponse,
     EmailStatus, Product, AuditLog, User
 )
-from app.email import send_email, build_inquiry_response_email
 from app.auth import get_current_user
+from app.email import send_email, build_inquiry_response_email
 import json
+from app.database import get_db, SessionLocal
 
 router    = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="app/templates") 
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -29,10 +30,10 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # FIX: Is_deleted checking config for PostgreSQL Compatibility
+    # Check if product exists and is No Stocks
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == False
+        Product.is_deleted == 0
     ).first()
 
     if not product:
@@ -195,7 +196,7 @@ async def respond_inquiry(
         return JSONResponse(
             {"error": "This inquiry has already been successfully responded to."}, status_code=400)
 
-    # Send email
+    # Build email BEFORE closing connection
     email_body = build_inquiry_response_email(
         student_name     = inquiry.student.name,
         product_name     = inquiry.product.product_name,
@@ -203,24 +204,38 @@ async def respond_inquiry(
         responded_at     = datetime.utcnow().strftime("%B %d, %Y %I:%M %p"),
         inquiry_message  = inquiry.message
     )
+    
+    # Store what we need, since we're about to close the DB connection
+    student_email = inquiry.student.email
+    student_name = inquiry.student.name
+    product_name = inquiry.product.product_name
 
+    # 🔑 CLOSE THE CONNECTION (it will release back to pool during email send)
+    db.close()
+
+    # ⭐ SEND EMAIL OUTSIDE THE DB SESSION - connection is now free for other requests
     email_sent = await send_email(
-        to         = inquiry.student.email,
-        subject    = f"Re: Inquiry for {inquiry.product.product_name}",
+        to         = student_email,
+        subject    = f"Re: Inquiry for {product_name}",
         body_html  = email_body
     )
 
     email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
 
-    # Pagsalbar sa data (Save Response)
+    # ✅ NOW get a fresh connection and save
+    db = SessionLocal()  # Import SessionLocal from app.database
+    
+    # Re-query for the latest state
+    existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
+
     if existing_response:
-        # Kon duna nay record sa database (katong ni-fail sauna), i-UPDATE ra nato aron malikayan ang UniqueViolation
+        # Update existing
         existing_response.response_message = response_message
         existing_response.email_status     = email_status
         existing_response.responded_at     = datetime.utcnow()
         existing_response.admin_id         = user["user_id"]
     else:
-        # Kon limpyo ug wala pa gyuy record, dinhi pa kita mag-INSERT og bag-o
+        # Insert new
         resp = InquiryResponse(
             inquiry_id       = inquiry_id,
             admin_id         = user["user_id"],
@@ -231,8 +246,9 @@ async def respond_inquiry(
         db.add(resp)
 
     # Update inquiry status
-    inquiry.status     = InquiryStatus.responded
-    inquiry.updated_at = datetime.utcnow()
+    inquiry_to_update = db.query(Inquiry).filter(Inquiry.inquiry_id == inquiry_id).first()
+    inquiry_to_update.status     = InquiryStatus.responded
+    inquiry_to_update.updated_at = datetime.utcnow()
     db.commit()
 
     # Audit log
@@ -241,14 +257,15 @@ async def respond_inquiry(
         action_type    = "SEND_RESPONSE",
         target_id      = str(inquiry_id),
         action_details = json.dumps({
-            "student_email": inquiry.student.email,
-            "product_name":  inquiry.product.product_name,
+            "student_email": student_email,
+            "product_name":  product_name,
             "email_status":  email_status.value
         }),
         performed_at   = datetime.utcnow()
     )
     db.add(log)
     db.commit()
+    db.close()
 
     return JSONResponse({
         "success":      True,
