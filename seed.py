@@ -1,7 +1,8 @@
+import os
+from datetime import datetime
 from app.database import SessionLocal
 from app.models import User, UserRole
 from app.auth import hash_password
-from datetime import datetime
 
 db = SessionLocal()
 
@@ -59,6 +60,8 @@ users = [
     },
 ]
 
+print("Starting database seeding...")
+
 for u in users:
     existing = db.query(User).filter(User.email == u["email"]).first()
     if not existing:
@@ -68,7 +71,7 @@ for u in users:
             email      = u["email"],
             password   = hash_password(u["password"]),
             role       = u["role"],
-            is_active  = 1,
+            is_active  = True,  # Giusab gikan sa 1 ngadto sa True para sa PostgreSQL Boolean field
             created_at = datetime.utcnow(),
             updated_at = datetime.utcnow()
         )
@@ -77,6 +80,11 @@ for u in users:
     else:
         print(f"Already exists: {u['email']}")
 
-db.commit()
-db.close()
-print("\nDone.")
+try:
+    db.commit()
+    print("\nDatabase seeding completed successfully. Done.")
+except Exception as e:
+    db.rollback()
+    print(f"\nError during seeding: {e}")
+finally:
+    db.close()
