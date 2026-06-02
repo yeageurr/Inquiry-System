@@ -8,12 +8,12 @@ from app.models import (
     Inquiry, InquiryStatus, InquiryResponse,
     EmailStatus, Product, AuditLog, User
 )
-from app.auth import get_current_user
 from app.email import send_email, build_inquiry_response_email
+from app.auth import get_current_user
 import json
 
 router    = APIRouter()
-templates = Jinja2Templates(directory="app/templates") 
+templates = Jinja2Templates(directory="app/templates")
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -29,10 +29,10 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # Check if product exists and is No Stocks
+    # FIX: Is_deleted checking config for PostgreSQL Compatibility
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == 0
+        Product.is_deleted == False
     ).first()
 
     if not product:
@@ -188,8 +188,8 @@ async def respond_inquiry(
     if not inquiry:
         return JSONResponse({"error": "Inquiry not found."}, status_code=404)
 
-    # Check if already responded (and not delivery failed)
-    if inquiry.response and inquiry.response.email_status != EmailStatus.failed:
+    # FIX: Gi-siguro ang pagkuha sa .value gikan sa Enum field para sakto ang comparison
+    if inquiry.response and inquiry.response.email_status.value != EmailStatus.failed.value:
         return JSONResponse(
             {"error": "This inquiry has already been responded to."}, status_code=400)
 
