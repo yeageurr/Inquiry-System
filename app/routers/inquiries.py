@@ -178,8 +178,7 @@ async def respond_inquiry(
         db.query(Inquiry)
         .options(
             joinedload(Inquiry.student),
-            joinedload(Inquiry.product),
-            joinedload(Inquiry.response)
+            joinedload(Inquiry.product)
         )
         .filter(Inquiry.inquiry_id == inquiry_id)
         .first()
@@ -188,10 +187,13 @@ async def respond_inquiry(
     if not inquiry:
         return JSONResponse({"error": "Inquiry not found."}, status_code=404)
 
-    # FIX: Gi-siguro ang pagkuha sa .value gikan sa Enum field para sakto ang comparison
-    if inquiry.response and inquiry.response.email_status.value != EmailStatus.failed.value:
+    # LIG-ON NGA PAG-CHECK: Diretso nga i-query ang database kon duna na bay tubag
+    existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
+
+    # Kung duna nay tubag ug MALAMPUSON na kini kaniadto, dili na pwede usban
+    if existing_response and existing_response.email_status.value != EmailStatus.failed.value:
         return JSONResponse(
-            {"error": "This inquiry has already been responded to."}, status_code=400)
+            {"error": "This inquiry has already been successfully responded to."}, status_code=400)
 
     # Send email
     email_body = build_inquiry_response_email(
@@ -210,14 +212,15 @@ async def respond_inquiry(
 
     email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
 
-    # Save response
-    if inquiry.response:
-        # Re-send case
-        inquiry.response.response_message = response_message
-        inquiry.response.email_status     = email_status
-        inquiry.response.responded_at     = datetime.utcnow()
-        inquiry.response.admin_id         = user["user_id"]
+    # Pagsalbar sa data (Save Response)
+    if existing_response:
+        # Kon duna nay record sa database (katong ni-fail sauna), i-UPDATE ra nato aron malikayan ang UniqueViolation
+        existing_response.response_message = response_message
+        existing_response.email_status     = email_status
+        existing_response.responded_at     = datetime.utcnow()
+        existing_response.admin_id         = user["user_id"]
     else:
+        # Kon limpyo ug wala pa gyuy record, dinhi pa kita mag-INSERT og bag-o
         resp = InquiryResponse(
             inquiry_id       = inquiry_id,
             admin_id         = user["user_id"],
