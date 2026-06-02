@@ -3,18 +3,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models import (
     Inquiry, InquiryStatus, InquiryResponse,
     EmailStatus, Product, AuditLog, User
 )
-from app.auth import get_current_user
 from app.email import send_email, build_inquiry_response_email
+from app.auth import get_current_user
 import json
-from app.database import get_db, SessionLocal
 
 router    = APIRouter()
-templates = Jinja2Templates(directory="app/templates") 
+templates = Jinja2Templates(directory="app/templates")
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -30,10 +29,10 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
-    # Check if product exists and is No Stocks
+    # FIX: Use boolean False instead of integer 0
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == 0
+        Product.is_deleted == False
     ).first()
 
     if not product:
@@ -223,7 +222,7 @@ async def respond_inquiry(
     email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
 
     # ✅ NOW get a fresh connection and save
-    db = SessionLocal()  # Import SessionLocal from app.database
+    db = SessionLocal()
     
     # Re-query for the latest state
     existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
