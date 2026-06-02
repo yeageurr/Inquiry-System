@@ -2,9 +2,8 @@ import enum
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Integer, Text, Enum,
-    DateTime, ForeignKey, DECIMAL
+    DateTime, ForeignKey, DECIMAL, Boolean  # Gidugang ang Boolean diri
 )
-from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -46,7 +45,7 @@ class User(Base):
     email      = Column(String(150), unique=True, nullable=False, index=True)
     password   = Column(String(255), nullable=False)
     role       = Column(Enum(UserRole), nullable=False, default=UserRole.student)
-    is_active  = Column(TINYINT(1),  nullable=False, default=1)
+    is_active  = Column(Boolean, nullable=False, default=True)  # Gi-ilisgan og Boolean gikan sa TINYINT
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -68,7 +67,7 @@ class Product(Base):
     product_status      = Column(Enum(ProductStatus), nullable=False,
                                  default=ProductStatus.available)
     product_price       = Column(DECIMAL(10, 2), nullable=False)
-    is_deleted          = Column(TINYINT(1), nullable=False, default=0)
+    is_deleted          = Column(Boolean, nullable=False, default=False)  # Gi-ilisgan og Boolean gikan sa TINYINT
     created_by          = Column(String(50), ForeignKey("users.user_id"), nullable=False)
     date_added          = Column(DateTime, default=datetime.utcnow)
     updated_at          = Column(DateTime, default=datetime.utcnow,
