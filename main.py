@@ -1,12 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException  # Gidugangan og Depends ug HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.orm import Session  # Gidugang para sa database session type hinting
 from dotenv import load_dotenv
 import json
 import os
 
-from app.database import engine, Base
+from app.database import engine, Base, get_db  # Gidugangan og get_db diri nga import
 from app.routers import auth, products, inquiries, audit, dashboard
 
 load_dotenv()
@@ -64,3 +65,14 @@ app.include_router(dashboard.router)
 app.include_router(products.router)
 app.include_router(inquiries.router)
 app.include_router(audit.router)
+
+# ── Database Connection Test Route ─────────────────────────────────────────
+# Kani ang bag-ong gidugang para ma-test nimo kung connect ba sa Aiven
+@app.get("/test-db")
+def test_database_connection(db: Session = Depends(get_db)):
+    try:
+        # Mo-execute og simple nga test query sa PostgreSQL
+        db.execute("SELECT 1")
+        return {"status": "success", "message": "Konektado kaayo ang imong FastAPI sa Aiven Database!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database Connection Error: {str(e)}")
