@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session  # Gidugang para sa database session type hinting
 from dotenv import load_dotenv
+from textwrap import shorten
 import json
 import os
 
@@ -50,7 +51,18 @@ def truncate_details(value):
     except Exception:
         return str(value)[:60] if value else "—"
 
+# GIDUGANG: Filter para ma-convert ang JSON string ngadto sa Python Dictionary sa HTML
+def from_json_custom(value):
+    try:
+        if isinstance(value, dict):
+            return value
+        return json.loads(value)
+    except Exception:
+        return {}
+
+# I-register ang mga filters ngadto sa Jinja2 Environment
 templates.env.filters["truncate_details"] = truncate_details
+templates.env.filters["from_json_custom"] = from_json_custom
 
 # ── Inject templates into routers ──────────────────────────────────────────
 dashboard.templates = templates
@@ -72,7 +84,8 @@ app.include_router(audit.router)
 def test_database_connection(db: Session = Depends(get_db)):
     try:
         # Mo-execute og simple nga test query sa PostgreSQL
-        db.execute("SELECT 1")
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
         return {"status": "success", "message": "Konektado kaayo ang imong FastAPI sa Aiven Database!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database Connection Error: {str(e)}")
