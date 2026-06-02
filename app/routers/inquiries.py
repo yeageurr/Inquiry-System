@@ -1,19 +1,26 @@
-from fastapi import APIRouter, Request, Depends, Form, BackgroundTasks
+from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
-from app.database import get_db, SessionLocal
+import pytz  # GIDUGANG: Para sa saktong Philippine Timezone
+import json
+
+from app.database import get_db
 from app.models import (
     Inquiry, InquiryStatus, InquiryResponse,
     EmailStatus, Product, AuditLog, User
 )
-from app.email import send_email, build_inquiry_response_email
 from app.auth import get_current_user
-import json
+from app.email import send_email, build_inquiry_response_email
 
 router    = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="app/templates") 
+
+# GIDUGANG: Function para makuha ang tinuod nga oras sa Pilipinas karon (GMT+8)
+def get_ph_time():
+    ph_tz = pytz.timezone('Asia/Manila')
+    return datetime.now(ph_tz).replace(tzinfo=None) # .replace(tzinfo=None) para mosakar sa standard DateTime columns
 
 
 # ── Student: Submit Inquiry ────────────────────────────────────────────────
@@ -29,9 +36,10 @@ async def submit_inquiry(
     if not user or user["user_role"] != "student":
         return JSONResponse({"error": "Unauthorized"}, status_code=403)
 
+    # Check if product exists and is No Stocks
     product = db.query(Product).filter(
         Product.product_id == product_id,
-        Product.is_deleted == False
+        Product.is_deleted == 0
     ).first()
 
     if not product:
@@ -43,6 +51,7 @@ async def submit_inquiry(
             status_code=400
         )
 
+    # Check for duplicate pending inquiry
     existing = db.query(Inquiry).filter(
         Inquiry.user_id    == user["user_id"],
         Inquiry.product_id == product_id,
@@ -55,19 +64,20 @@ async def submit_inquiry(
             status_code=400
         )
 
+    # GIUSAB: Giilisan ang datetime.utcnow() og get_ph_time()
+    current_time = get_ph_time()
     inquiry = Inquiry(
         user_id    = user["user_id"],
         product_id = product_id,
         message    = message.strip(),
         status     = InquiryStatus.pending,
-        created_at = datetime.utcnow(),
-        updated_at = datetime.utcnow()
+        created_at = current_time,
+        updated_at = current_time
     )
     db.add(inquiry)
     db.commit()
 
-    return JSONResponse({
-        "success": True,
+    return JSONResponse({"success": True,
         "message": "Your inquiry has been sent. Please check your email for updates."
     })
 
@@ -155,7 +165,6 @@ async def admin_inquiries(
 async def respond_inquiry(
     request:          Request,
     inquiry_id:       int,
-    background_tasks: BackgroundTasks,
     response_message: str = Form(...),
     db:               Session = Depends(get_db)
 ):
@@ -168,15 +177,18 @@ async def respond_inquiry(
     if not response_message:
         return JSONResponse({"error": "Response cannot be empty."}, status_code=400)
     if len(response_message) < 10:
-        return JSONResponse({"error": "Response must be at least 10 characters."}, status_code=400)
+        return JSONResponse(
+            {"error": "Response must be at least 10 characters."}, status_code=400)
     if len(response_message) > 1000:
-        return JSONResponse({"error": "Response cannot exceed 1,000 characters."}, status_code=400)
+        return JSONResponse(
+            {"error": "Response cannot exceed 1,000 characters."}, status_code=400)
 
     inquiry = (
         db.query(Inquiry)
         .options(
             joinedload(Inquiry.student),
-            joinedload(Inquiry.product)
+            joinedload(Inquiry.product),
+            joinedload(Inquiry.response)
         )
         .filter(Inquiry.inquiry_id == inquiry_id)
         .first()
@@ -185,86 +197,72 @@ async def respond_inquiry(
     if not inquiry:
         return JSONResponse({"error": "Inquiry not found."}, status_code=404)
 
-    # Siguroon nga dili doblehon kung malampuson na ang miaging tubag
-    existing_response = db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
-    if existing_response and existing_response.email_status.value == EmailStatus.delivered.value:
-        return JSONResponse({"error": "This inquiry has already been successfully responded to."}, status_code=400)
+    # Check if already responded (and not delivery failed)
+    if inquiry.response and inquiry.response.email_status != EmailStatus.failed:
+        return JSONResponse(
+            {"error": "This inquiry has already been responded to."}, status_code=400)
 
-    # I-build daan ang gikinahanglan nga variables samtang abli pa ang DB connection
-    student_name = inquiry.student.name
-    student_email = inquiry.student.email
-    product_name = inquiry.product.product_name
-    inquiry_message = inquiry.message
+    # GIUSAB: Paggamit sa saktong Philippine Time alang sa Email Body format
+    current_time = get_ph_time()
+    formatted_ph_time = current_time.strftime("%B %d, %Y %I:%M %p")
 
+    # Send email
     email_body = build_inquiry_response_email(
-        student_name     = student_name,
-        product_name     = product_name,
+        student_name     = inquiry.student.name,
+        product_name     = inquiry.product.product_name,
         response_message = response_message,
-        responded_at     = datetime.utcnow().strftime("%B %d, %Y %I:%M %p"),
-        inquiry_message  = inquiry_message
+        responded_at     = formatted_ph_time, # Gigamit ang saktong local time string
+        inquiry_message  = inquiry.message
     )
 
-    # Pagsalbar sa database status isip 'failed' (default/processing status)
-    if existing_response:
-        existing_response.response_message = response_message
-        existing_response.email_status     = EmailStatus.failed
-        existing_response.responded_at     = datetime.utcnow()
-        existing_response.admin_id         = user["user_id"]
+    email_sent = await send_email(
+        to         = inquiry.student.email,
+        subject    = f"Re: Inquiry for {inquiry.product.product_name}",
+        body_html  = email_body
+    )
+
+    email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
+
+    # Save response
+    if inquiry.response:
+        # Re-send case
+        inquiry.response.response_message = response_message
+        inquiry.response.email_status     = email_status
+        inquiry.response.responded_at     = current_time
+        inquiry.response.admin_id         = user["user_id"]
     else:
         resp = InquiryResponse(
             inquiry_id       = inquiry_id,
             admin_id         = user["user_id"],
             response_message = response_message,
-            email_status     = EmailStatus.failed,
-            responded_at     = datetime.utcnow()
+            email_status     = email_status,
+            responded_at     = current_time
         )
         db.add(resp)
 
     # Update inquiry status
     inquiry.status     = InquiryStatus.responded
-    inquiry.updated_at = datetime.utcnow()
+    inquiry.updated_at = current_time
     db.commit()
 
-    # I-queue ang email function aron modagan sa tago (Background Task)
-    async def email_worker():
-        worker_db = SessionLocal()
-        try:
-            email_sent = await send_email(
-                to        = student_email,
-                subject   = f"Re: Inquiry for {product_name}",
-                body_html = email_body
-            )
-            
-            # I-update ang status sa database dependi sa resulta sa email
-            resp_record = worker_db.query(InquiryResponse).filter(InquiryResponse.inquiry_id == inquiry_id).first()
-            if resp_record:
-                resp_record.email_status = EmailStatus.delivered if email_sent else EmailStatus.failed
-                worker_db.commit()
-        except Exception as e:
-            print(f"[BACKGROUND EMAIL ERROR]: {e}")
-        finally:
-            worker_db.close()
-
-    background_tasks.add_task(email_worker)
-
     # Audit log
-    log = AuditLog(
+    log = AuditLog( 
         user_id        = user["user_id"],
         action_type    = "SEND_RESPONSE",
         target_id      = str(inquiry_id),
         action_details = json.dumps({
-            "student_email": student_email,
-            "product_name":  product_name,
-            "email_status":  "processing_in_background"
+            "student_email": inquiry.student.email,
+            "product_name":  inquiry.product.product_name,
+            "email_status":  email_status.value
         }),
-        performed_at   = datetime.utcnow()
+        performed_at   = current_time # Gigamit ang local PH time para sa Audit Log table
     )
     db.add(log)
     db.commit()
 
-    # Instant response para dili na mag-loading ang Admin page!
     return JSONResponse({
         "success":      True,
-        "email_status": "pending",
-        "message":      "Response saved! Email is being processed in the background."
+        "email_status": email_status.value,
+        "message":      "Response sent successfully." if email_sent
+                        else "Response saved but email delivery failed. Will retry."
     })
