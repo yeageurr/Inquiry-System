@@ -2,11 +2,26 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
+import json  # GIDUGANG: Para sa pag-parse sa JSON data
+
 from app.database import get_db
 from app.models import AuditLog
 from app.auth import get_current_user
 
-router    = APIRouter(prefix="/admin")
+router = APIRouter(prefix="/admin")
+
+# ── GI-FIX 1: Gi-initialize ang templates variable ────────────────────────
+templates = Jinja2Templates(directory="app/templates")
+
+# ── GI-FIX 2: Gidugang ang custom filter para sa log.action_details ───────
+def from_json_custom(value):
+    try:
+        return json.loads(value) if value else {}
+    except (ValueError, TypeError):
+        return {}
+
+# Gi-register ang filter sa Jinja2 environment para mabasa sa HTML template
+templates.env.filters["from_json_custom"] = from_json_custom
 
 
 @router.get("/audit-logs", response_class=HTMLResponse)
