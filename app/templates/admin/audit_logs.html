@@ -1,60 +1,94 @@
-from fastapi import APIRouter, Request, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session, joinedload
-import json  # GIDUGANG: Gikinahanglan para sa pag-parse sa action_details JSON string
+{% extends "base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block breadcrumb %}Audit Logs{% endblock %}
+{% block page_title %}Audit Logs{% endblock %}
+{% block nav_audit %}active{% endblock %}
 
-from app.database import get_db
-from app.models import AuditLog
-from app.auth import get_current_user
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/audit_logs.css">
+{% endblock %}
 
-router = APIRouter(prefix="/admin")
+{% block content %}
 
-# ── GI-FIX 1: Gi-initialize ang templates variable ────────────────────────
-templates = Jinja2Templates(directory="app/templates")
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+      <select id="action-filter" class="filter-select" onchange="filterLogs()">
+          <option value="All"            {% if action_type == 'All' %}selected{% endif %}>All Actions</option>
+          <option value="ADD_PRODUCT"    {% if action_type == 'ADD_PRODUCT' %}selected{% endif %}>ADD_PRODUCT</option>
+          <option value="EDIT_PRODUCT"   {% if action_type == 'EDIT_PRODUCT' %}selected{% endif %}>EDIT_PRODUCT</option>
+          <option value="DELETE_PRODUCT" {% if action_type == 'DELETE_PRODUCT' %}selected{% endif %}>DELETE_PRODUCT</option>
+          <option value="SEND_RESPONSE"  {% if action_type == 'SEND_RESPONSE' %}selected{% endif %}>SEND_RESPONSE</option>
+      </select>
+      <div class="search-box">
+          <i class="ti ti-search"></i>
+          <input type="text" id="search-input"
+                  placeholder="Search logs..."
+                  value="{{ search }}" onkeyup="filterLogs()">
+      </div>
+  </div>
+  <div class="readonly-notice">
+      <i class="ti ti-lock"></i> Read-only
+  </div>
+</div>
 
-# ── GI-FIX 2: Custom filter function para sa log.action_details ───────
-def from_json_custom(value):
-    try:
-        return json.loads(value) if value else {}
-    except (ValueError, TypeError):
-        return {}
+<!-- Table -->
+<div class="table-wrap">
+  <table id="logs-table">
+      <thead>
+          <tr>
+              <th>Action Performed</th>
+              <th>Performed By</th>
+              <th>Action Details</th>
+              <th>Date and Time</th>
+          </tr>
+      </thead>
+      <tbody>
+          {% for log in logs %}
+          <tr data-action="{{ log.action_type }}"
+              data-search="{{ log.action_type.lower() }} {{ log.actor.name.lower() if log.actor else '' }}">
+              <td><span class="action-label">{{ log.action_type }}</span></td>
+              <td>{{ log.actor.name if log.actor else '—' }}</td>
+              <td>
+              <button class="btn-details"
+                data-details="{{ log.action_details | e }}"
+                onclick="showDetails(this)">
+                <i class="ti ti-eye"></i> View
+              </button>
+              </td>
+              <td>{{ log.performed_at.strftime('%m-%d-%Y %H:%M:%S') }}</td>
+          </tr>
+          {% else %}
+          <tr>
+              <td colspan="4" class="empty-row">No audit logs found.</td>
+          </tr>
+          {% endfor %}
+      </tbody>
+  </table>
+</div>
 
-# Gi-register ang filter sa Jinja2 environment para mabasa sa imong audit_logs.html
-templates.env.filters["from_json_custom"] = from_json_custom
+<!-- Details Modal -->
+<div class="modal-overlay" id="details-modal">
+  <div class="modal modal-sm">
+      <div class="modal-header">
+          <h3>Action Details</h3>
+          <button class="modal-close" onclick="closeModal('details-modal')">
+              <i class="ti ti-x"></i>
+          </button>
+      </div>
+      <div class="modal-body">
+          <pre id="details-content" class="details-pre"></pre>
+      </div>
+      <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal('details-modal')">
+              Close
+          </button>
+      </div>
+  </div>
+</div>
 
+{% endblock %}
 
-@router.get("/audit-logs", response_class=HTMLResponse)
-async def audit_logs(
-    request:     Request,
-    action_type: str = "All",
-    search:      str = "",
-    db:          Session = Depends(get_db)
-):
-    user = get_current_user(request)
-    if not user or user["user_role"] != "admin":
-        return RedirectResponse("/login", status_code=302)
-
-    query = (
-        db.query(AuditLog)
-        .options(joinedload(AuditLog.actor))
-    )
-
-    if action_type != "All":
-        query = query.filter(AuditLog.action_type == action_type)
-
-    if search:
-        query = query.filter(
-            AuditLog.action_type.ilike(f"%{search}%") |
-            AuditLog.action_details.ilike(f"%{search}%")
-        )
-
-    logs = query.order_by(AuditLog.performed_at.desc()).all()
-
-    return templates.TemplateResponse("admin/audit_logs.html", {
-        "request":     request,
-        "user":        user,
-        "logs":        logs,
-        "action_type": action_type,
-        "search":      search,
-    })
+{% block extra_js %}
+<script src="/static/js/audit_logs.js"></script>
+{% endblock %}
