@@ -1,115 +1,60 @@
-{% extends "base.html" %}
-{% block title %}Audit Logs{% endblock %}
-{% block breadcrumb %}Audit Logs{% endblock %}
-{% block page_title %}Audit Logs{% endblock %}
-{% block nav_audit %}active{% endblock %}
+from fastapi import APIRouter, Request, Depends
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session, joinedload
+import json  # GIDUGANG: Gikinahanglan para sa pag-parse sa action_details JSON string
 
-{% block extra_css %}
-<link rel="stylesheet" href="/static/css/audit_logs.css">
-{% endblock %}
+from app.database import get_db
+from app.models import AuditLog
+from app.auth import get_current_user
 
-{% block content %}
+router = APIRouter(prefix="/admin")
 
-<div class="toolbar">
-  <div class="toolbar-left">
-      <select id="action-filter" class="filter-select" onchange="filterLogs()">
-          <option value="All"            {% if action_type == 'All' %}selected{% endif %}>All Actions</option>
-          <option value="ADD_PRODUCT"    {% if action_type == 'ADD_PRODUCT' %}selected{% endif %}>ADD_PRODUCT</option>
-          <option value="EDIT_PRODUCT"   {% if action_type == 'EDIT_PRODUCT' %}selected{% endif %}>EDIT_PRODUCT</option>
-          <option value="DELETE_PRODUCT" {% if action_type == 'DELETE_PRODUCT' %}selected{% endif %}>DELETE_PRODUCT</option>
-          <option value="SEND_RESPONSE"  {% if action_type == 'SEND_RESPONSE' %}selected{% endif %}>SEND_RESPONSE</option>
-      </select>
-      <div class="search-box">
-          <i class="ti ti-search"></i>
-          <input type="text" id="search-input"
-                  placeholder="Search logs..."
-                  value="{{ search }}" onkeyup="filterLogs()">
-      </div>
-  </div>
-  <div class="readonly-notice">
-      <i class="ti ti-lock"></i> Read-only
-  </div>
-</div>
+# ── GI-FIX 1: Gi-initialize ang templates variable ────────────────────────
+templates = Jinja2Templates(directory="app/templates")
 
-<div class="table-wrap">
-  <table id="logs-table">
-      <thead>
-          <tr>
-              <th>Action Performed</th>
-              <th>Performed By</th>
-              <th>Action Summary</th> <th>Details</th>
-              <th>Date and Time</th>
-          </tr>
-      </thead>
-      <tbody>
-          {% for log in logs %}
-          <tr data-action="{{ log.action_type }}"
-              data-search="{{ log.action_type.lower() }} {{ log.actor.name.lower() if log.actor else '' }}">
-              <td><span class="action-label">{{ log.action_type }}</span></td>
-              <td>{{ log.actor.name if log.actor else '—' }}</td>
-              
-              <td>
-                <span class="summary-text">
-                  {% if log.action_type == 'EDIT_PRODUCT' %}
-                    {% set details = log.action_details | from_json_custom %}
-                    {% if details and details.before and details.after %}
-                      {% if details.before.product_status != details.after.product_status %}
-                        Changed status of <strong>{{ details.after.product_name }}</strong> from <em>{{ details.before.product_status }}</em> to <span class="badge {% if details.after.product_status == 'Available' %}badge-available{% else %}badge-nostocks{% endif %}">{{ details.after.product_status }}</span>
-                      {% elif details.before.product_price != details.after.product_price %}
-                        Updated price of <strong>{{ details.after.product_name }}</strong> from ₱{{ "%.2f"|format(details.before.product_price) }} to ₱{{ "%.2f"|format(details.after.product_price) }}
-                      {% else %}
-                        Updated details for product <strong>{{ details.after.product_name }}</strong>
-                      {% endif %}
-                    {% else %}
-                      Modified product attributes
-                    {% endif %}
-                  {% elif log.action_type == 'SEND_RESPONSE' %}
-                    Replied to inquiry for student
-                  {% else %}
-                    Processed transaction or record
-                  {% endif %}
-                </span>
-              </td>
+# ── GI-FIX 2: Custom filter function para sa log.action_details ───────
+def from_json_custom(value):
+    try:
+        return json.loads(value) if value else {}
+    except (ValueError, TypeError):
+        return {}
 
-              <td>
-              <button class="btn-details"
-                data-details="{{ log.action_details | e }}"
-                onclick="showDetails(this)">
-                <i class="ti ti-eye"></i> View
-              </button>
-              </td>
-              <td>{{ log.performed_at.strftime('%m-%d-%Y %H:%M:%S') }}</td>
-          </tr>
-          {% else %}
-          <tr>
-              <td colspan="5" class="empty-row">No audit logs found.</td>
-          </tr>
-          {% endfor %}
-      </tbody>
-  </table>
-</div>
+# Gi-register ang filter sa Jinja2 environment para mabasa sa imong audit_logs.html
+templates.env.filters["from_json_custom"] = from_json_custom
 
-<div class="modal-overlay" id="details-modal">
-  <div class="modal modal-sm">
-      <div class="modal-header">
-          <h3>Action Details</h3>
-          <button class="modal-close" onclick="closeModal('details-modal')">
-              <i class="ti ti-x"></i>
-          </button>
-      </div>
-      <div class="modal-body">
-          <pre id="details-content" class="details-pre"></pre>
-      </div>
-      <div class="modal-footer">
-          <button class="btn-cancel" onclick="closeModal('details-modal')">
-              Close
-          </button>
-      </div>
-  </div>
-</div>
 
-{% endblock %}
+@router.get("/audit-logs", response_class=HTMLResponse)
+async def audit_logs(
+    request:     Request,
+    action_type: str = "All",
+    search:      str = "",
+    db:          Session = Depends(get_db)
+):
+    user = get_current_user(request)
+    if not user or user["user_role"] != "admin":
+        return RedirectResponse("/login", status_code=302)
 
-{% block extra_js %}
-<script src="/static/js/audit_logs.js"></script>
-{% endblock %}
+    query = (
+        db.query(AuditLog)
+        .options(joinedload(AuditLog.actor))
+    )
+
+    if action_type != "All":
+        query = query.filter(AuditLog.action_type == action_type)
+
+    if search:
+        query = query.filter(
+            AuditLog.action_type.ilike(f"%{search}%") |
+            AuditLog.action_details.ilike(f"%{search}%")
+        )
+
+    logs = query.order_by(AuditLog.performed_at.desc()).all()
+
+    return templates.TemplateResponse("admin/audit_logs.html", {
+        "request":     request,
+        "user":        user,
+        "logs":        logs,
+        "action_type": action_type,
+        "search":      search,
+    })
